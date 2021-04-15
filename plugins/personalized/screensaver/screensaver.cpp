@@ -357,7 +357,8 @@ void Screensaver::startupScreensaver() {
     //关闭屏保
     closeScreensaver();
     qDebug() << Q_FUNC_INFO << ui->previewWidget->winId();
-    if (ui->comboBox->currentIndex() == INDEX_MODE_DEFAULT_UKUI) {//UKUI
+    if (ui->comboBox->currentIndex() == INDEX_MODE_DEFAULT_UKUI || \
+        ui->comboBox->currentIndex() == INDEX_MODE_CUSTOMIZE) { //UKUI && 自定义
         QStringList args;
         args << "-window-id" << QString::number(ui->previewWidget->winId());
         //启动屏保
@@ -391,13 +392,14 @@ void Screensaver::closeScreensaver() {
 
 void Screensaver::kill_and_start() {
     emit kill_signals(); //如果有屏保先杀死
-    if (ui->comboBox->currentIndex() == 0) {//UKUI
+    if (ui->comboBox->currentIndex() == INDEX_MODE_DEFAULT_UKUI || \
+        ui->comboBox->currentIndex() == INDEX_MODE_CUSTOMIZE) { //UKUI && 自定义
         QStringList args;
         args << "-window-id" << QString::number(mPreviewWidget->winId());
         //启动屏保
         process->startDetached(screensaver_bin, args);
         runStringList.append(screensaver_bin);
-    } else if (ui->comboBox->currentIndex() == 1) {//黑屏
+    } else if (ui->comboBox->currentIndex() == INDEX_MODE_BLANK_ONLY) { //黑屏
         mPreviewWidget->update();
     } else if (ui->comboBox->currentIndex() == 2) {//随机
         mPreviewWidget->update();
