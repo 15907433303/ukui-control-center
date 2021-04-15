@@ -32,6 +32,7 @@
 #include <QMoveEvent>
 #include <QtDBus>
 #include <QHideEvent>
+#include <QTextEdit>
 
 #include "shell/interface.h"
 #include "SwitchButton/switchbutton.h"
@@ -99,7 +100,7 @@ public:
     void initEnableBtnStatus();
     void initThemeStatus();
     void initIdleSliderStatus();
-    void initShowTimeBtnStatus(bool status);
+    void initShowTimeBtnStatus();
 
     void startupScreensaver();
     void closeScreensaver();
@@ -127,6 +128,7 @@ private:
     int convertToLocktime(const int value);
     int lockConvertToSlider(const int value);
     void connectToServer();
+    bool eventFilter(QObject *watched, QEvent *event);
 
 private:
     Ui::Screensaver *ui;
@@ -141,6 +143,7 @@ private:
     QMap<QString, SSThemeInfo> infoMap;
 
     GSettings  * screensaver_settings;
+    QGSettings * qScreensaverDefaultSetting;
     GSettings  * session_settings;
     QGSettings * screenlock_settings = nullptr;
     QGSettings * qSessionSetting = nullptr;
@@ -160,6 +163,8 @@ private:
     QDBusInterface *m_cloudInterface;
 
     bool mFirstLoad;
+    QLineEdit *sourcePathLine;
+    QTextEdit *inputText;
 private:
     SSThemeInfo _info_new(const char * path);
     void init_theme_info_map();

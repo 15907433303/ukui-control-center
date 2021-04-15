@@ -22,9 +22,9 @@
 
 #include <QDebug>
 #include <QBoxLayout>
-#include <QTextEdit>
 #include <QTextBrowser>
 #include <QFileDialog>
+#include <QLineEdit>
 #include "ComboBox/combobox.h"
 
 #define SSTHEMEPATH "/usr/share/applications/screensavers/"
@@ -35,6 +35,21 @@
 #define THEMES_KEY "themes"
 #define LOCK_KEY "lock-enabled"
 #define ACTIVE_KEY "idle-activation-enabled"
+#define AUTO_SWITCH_KEY "automatic-switching-enabled"
+#define MYTEXT_KEY "mytext"
+#define TEXT_CENTER_KEY "text-is-center"
+#define SHOW_REST_TIME_KEY "show-rest-time"
+#define CONTAIN_AUTO_SWITCH_KEY "automaticSwitchingEnabled"
+#define CONTAIN_MYTEXT_KEY "mytext"
+#define CONTAIN_TEXT_CENTER_KEY "textIsCenter"
+#define CONTAIN_SHOW_REST_TIME_KEY "showRestTime"
+
+#define SCREENSAVER_DEFAULT_SCHEMA "org.ukui.screensaver-default"
+#define BACKGROUND_PATH_KEY "background-path"
+#define CYCLE_TIME_KEY "cycle-time"
+#define CONTAIN_BACKGROUND_PATH_KEY "backgroundPath"
+#define CONTAIN_CYCLE_TIME_KEY "cycleTime"
+
 
 #define SESSION_SCHEMA "org.ukui.session"
 #define IDLE_DELAY_KEY "idle-delay"
@@ -107,7 +122,7 @@ QWidget *Screensaver::get_plugin_ui() {
         initSearchText();
         _acquireThemeinfoList();
         initComponent();
-        initEnableBtnStatus();
+        initShowTimeBtnStatus();
         initThemeStatus();
         initIdleSliderStatus();
     }
@@ -148,25 +163,22 @@ void Screensaver::initSearchText() {
 }
 
 void Screensaver::initComponent() {
-    /*
-    if (QGSettings::isSchemaInstalled(SCREENSAVER_SCHEMA)) {
-        const QByteArray id(SCREENSAVER_SCHEMA);
-        screenlock_settings = new QGSettings(id, QByteArray(), this);
-        connect(screenlock_settings, &QGSettings::changed, [=](QString key) {
-            if (key == "lockEnabled") {
-                bool judge = screenlock_settings->get(LOCK_KEY).toBool();
-                if (judge && !enableSwitchBtn->isChecked()) {
-                    enableSwitchBtn->setChecked(judge);
-                }
-            }
-        });
-    }*/
     if (QGSettings::isSchemaInstalled(SESSION_SCHEMA)) {
         qSessionSetting = new QGSettings(SESSION_SCHEMA, QByteArray(), this);
     }
     if (QGSettings::isSchemaInstalled(SCREENSAVER_SCHEMA)) {
         qScreenSaverSetting = new QGSettings(SCREENSAVER_SCHEMA, QByteArray(), this);
+    } else {
+        qScreenSaverSetting = nullptr;
     }
+
+    if (QGSettings::isSchemaInstalled(SCREENSAVER_DEFAULT_SCHEMA)) {
+        qScreensaverDefaultSetting = new QGSettings(SCREENSAVER_DEFAULT_SCHEMA, QByteArray(), this);
+    } else {
+        qDebug()<<"org.ukui.screensaver-default not installed"<<endl;
+        qScreensaverDefaultSetting = nullptr;
+    }
+
     screensaver_bin = "/usr/lib/ukui-screensaver/ukui-screensaver-default";
 
     //添加开启屏保按钮
@@ -176,7 +188,7 @@ void Screensaver::initComponent() {
     ui->enableHorLayout->addWidget(enableSwitchBtn);
 
   
-    //添加锁定屏幕开关按钮
+    //添加休息时间显示按钮
     showTimeBtn = new SwitchButton(ui->showTimeFrame);
     ui->showTimeLayout->addStretch();
     ui->showTimeLayout->addWidget(showTimeBtn);
@@ -205,20 +217,10 @@ void Screensaver::initComponent() {
     uslider->setPageStep(1);
 
     ui->lockhorizontalLayout->addWidget(uslider);
-    // ui->lockhorizontalLayout->addSpacing(15);
 
-/*
-        暂时废弃掉这个按钮的打开关闭屏保功能
-    connect(enableSwitchBtn, &SwitchButton::checkedChanged, this, [=](bool checked) {
-        screensaver_settings = g_settings_new(SCREENSAVER_SCHEMA);
-        g_settings_set_boolean(screensaver_settings, ACTIVE_KEY, checked);
-        g_object_unref(screensaver_settings);
-    });
-*/
     connect(qScreenSaverSetting, &QGSettings::changed, this, [=](const QString key) {
         if ("idleActivationEnabled" == key) {
             auto status = qScreenSaverSetting->get(ACTIVE_KEY).toBool();
-            //enableSwitchBtn->setChecked(status);
             if (status == false) {
                 uslider->setValue(lockConvertToSlider(silderNeverValue));
             }
@@ -256,39 +258,25 @@ void Screensaver::initComponent() {
     connect(ui->previewWidget, &QWidget::destroyed, this, [=] {
         closeScreensaver();
     });
+
+    qApp->installEventFilter(this);
 }
 
 void Screensaver::initPreviewWidget() {
     startupScreensaver();
 }
 
-void Screensaver::initEnableBtnStatus() {
-
-    const QByteArray ba(SCREENSAVER_SCHEMA);
-    QGSettings * settings = new QGSettings(ba);
-
-    //初始化EnableBtn状态
-    /*bool active;
-    active = settings->get(ACTIVE_KEY).toBool();
-    enableSwitchBtn->blockSignals(true);
-    enableSwitchBtn->setChecked(active);
-    enableSwitchBtn->blockSignals(false);*/
-
-    //初始化LockWidget状态
-    // ui->showTimeFrame->setVisible(false);
-
-    bool locked;
-    locked = settings->get(LOCK_KEY).toBool();
-    initShowTimeBtnStatus(locked);
-
-    delete settings;
-    settings = nullptr;
-}
-////////////////////////////////////这里要改为显示时间的设置
-void Screensaver::initShowTimeBtnStatus(bool status) {
-    showTimeBtn->blockSignals(true);
-    showTimeBtn->setChecked(status);
-    showTimeBtn->blockSignals(false);
+/*显示时间的设置*/
+void Screensaver::initShowTimeBtnStatus() {
+    if (qScreensaverDefaultSetting != nullptr && \
+        qScreensaverDefaultSetting->keys().contains(CONTAIN_SHOW_REST_TIME_KEY,Qt::CaseSensitive)) {
+        showTimeBtn->setChecked(qScreensaverDefaultSetting->get(SHOW_REST_TIME_KEY).toBool());
+        connect(showTimeBtn,&SwitchButton::checkedChanged,this,[=]{
+            qScreensaverDefaultSetting->set(SHOW_REST_TIME_KEY,showTimeBtn->isChecked());
+        });
+    } else {
+        showTimeBtn->setEnabled(false);
+    }
 }
 
 void Screensaver::initThemeStatus() {
@@ -603,7 +591,7 @@ void Screensaver::initScreensaverSourceFrame() {
     QFrame *screensaverSourceFrame = new QFrame();
     QHBoxLayout *sourceLayout = new QHBoxLayout();
     QLabel *sourceLabel = new QLabel();
-    QLabel *sourcePathLabel = new QLabel();
+    sourcePathLine = new QLineEdit();
     QPushButton *sourceBtn = new QPushButton();
     screensaverSourceFrame->setFixedHeight(50);
     screensaverSourceFrame->setObjectName("screensaverSourceFrame");
@@ -611,26 +599,36 @@ void Screensaver::initScreensaverSourceFrame() {
     screensaverSourceFrame->setLayout(sourceLayout);
     sourceLayout->setContentsMargins(16,0,16,0);
     sourceLayout->addWidget(sourceLabel);
-    sourceLayout->addWidget(sourcePathLabel);
+    sourceLayout->addWidget(sourcePathLine);
     sourceLayout->addWidget(sourceBtn);
     sourceLabel->setText(tr("Screensaver source"));
     sourceLabel->setFixedWidth(196);
     sourceLabel->setStyleSheet("background-color:palette(window);");
-    sourcePathLabel->setText(("/usr/share/"));
-    sourcePathLabel->setFixedHeight(36);
-    sourcePathLabel->setMinimumWidth(252);
-    sourcePathLabel->setStyleSheet("background-color:palette(window);");
+    sourcePathLine->setFixedHeight(36);
+    sourcePathLine->setMinimumWidth(252);
+    sourcePathLine->setStyleSheet("background-color:palette(window);");
+    sourcePathLine->setFocusPolicy(Qt::NoFocus);
+    sourcePathLine->setContextMenuPolicy(Qt::NoContextMenu);//不要右击菜单，右击菜单导致选择状态的清除不好实现,且会破坏文字内容
     sourceBtn->setFixedSize(80,36);
     sourceBtn->setStyleSheet("background-color:palette(button);");
     sourceBtn->setText(tr("Select"));
     sourceBtn->raise();
-    connect(sourceBtn,&QPushButton::clicked,this,[=]{
-        QString path = QFileDialog::getExistingDirectory(screensaverSourceFrame,tr("Select screensaver source"),"/usr/share/backgrounds/");
-        qDebug()<<"path = "<<path;
-        if (path != "") {
-            sourcePathLabel->setText(path);
-        }
-    });
+    if (qScreensaverDefaultSetting != nullptr && \
+        qScreensaverDefaultSetting->keys().contains(CONTAIN_BACKGROUND_PATH_KEY,Qt::CaseSensitive)) {   //存在【设置路径】
+        sourcePathLine->setText((qScreensaverDefaultSetting->get(BACKGROUND_PATH_KEY).toString()));
+        connect(sourceBtn,&QPushButton::clicked,this,[=]{
+            QString path = QFileDialog::getExistingDirectory(screensaverSourceFrame,tr("Select screensaver source"),
+                                                             qScreensaverDefaultSetting->get(BACKGROUND_PATH_KEY).toString(),
+                                                            QFileDialog::ReadOnly);
+            if(path != "") {  //非点击【取消】时
+                sourcePathLine->setText(path);
+                qScreensaverDefaultSetting->set(BACKGROUND_PATH_KEY,path);
+            }
+        });
+    } else {  //不存在【设置路径】
+        sourceBtn->setEnabled(false);
+    }
+
     ui->customizeLayout->addWidget(screensaverSourceFrame);
 }
 
@@ -655,11 +653,30 @@ void Screensaver::initTimeSetFrame() {
     timeCom->addItem(tr("5min"));
     timeCom->addItem(tr("10min"));
     timeCom->addItem(tr("30min"));
-    /*timeCom->setStyleSheet("QComboBox{background-color:palette(button);} QComboBox::drop-down{ \
-            width: 30px; \
-            background-color:red;\
-            };");*/
-    //timeCom->setStyleSheet(ui->comboBox->styleSheet());
+    if (qScreensaverDefaultSetting != nullptr && \
+        qScreensaverDefaultSetting->keys().contains(CONTAIN_CYCLE_TIME_KEY,Qt::CaseSensitive)) { //存在【间隔时间设置】
+        int timeComIndex = qScreensaverDefaultSetting->get(CYCLE_TIME_KEY).toInt();
+        if (timeComIndex == 60) {
+            timeCom->setCurrentIndex(0);
+        } else if (timeComIndex == 300) {
+            timeCom->setCurrentIndex(1);
+        } else if (timeComIndex == 600) {
+            timeCom->setCurrentIndex(2);
+        } else if (timeComIndex == 1800) {
+            timeCom->setCurrentIndex(3);
+        }
+        connect(timeCom,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[=](){
+            if (timeCom->currentIndex() == 0) {
+                qScreensaverDefaultSetting->set(CYCLE_TIME_KEY,60);
+            } else if (timeCom->currentIndex() == 1) {
+                qScreensaverDefaultSetting->set(CYCLE_TIME_KEY,300);
+            } else if (timeCom->currentIndex() == 2) {
+                qScreensaverDefaultSetting->set(CYCLE_TIME_KEY,600);
+            } else if (timeCom->currentIndex() == 3) {
+                qScreensaverDefaultSetting->set(CYCLE_TIME_KEY,1800);
+            }
+        });
+    }
     ui->customizeLayout->addWidget(timeSetFrame);
 }
 
@@ -677,6 +694,15 @@ void Screensaver::initPictureSwitchFrame() {
     randomLayout->addWidget(randomBtn);
     randomLabel->setText(tr("Random replacement"));
     randomLabel->setFixedWidth(196);
+    if (qScreensaverDefaultSetting != nullptr && \
+        qScreensaverDefaultSetting->keys().contains(CONTAIN_AUTO_SWITCH_KEY,Qt::CaseSensitive)) { //存在【随机切换】
+        randomBtn->setChecked(qScreensaverDefaultSetting->get(AUTO_SWITCH_KEY).toBool());
+        connect(randomBtn,&SwitchButton::checkedChanged,this,[=]{
+            qScreensaverDefaultSetting->set(AUTO_SWITCH_KEY,randomBtn->isChecked());
+        });
+    } else { //不存在【随机切换】
+        randomBtn->setEnabled(false);
+    }
     ui->customizeLayout->addWidget(pictureSwitchFrame);
 }
 
@@ -686,7 +712,7 @@ void Screensaver::initShowTextFrame() {
     QLabel *showLabel = new QLabel();
     QWidget *textWid = new QWidget();
     QVBoxLayout *widVLayout = new QVBoxLayout();
-    QTextEdit *inputText = new QTextEdit(); //用户输入文字
+    inputText = new QTextEdit(); //用户输入文字
     QLabel *noticeLabel = new QLabel();
     showTextFrame->setFixedHeight(98);
     showTextFrame->setStyleSheet("background-color:palette(window);border-radius:6px;");
@@ -702,34 +728,39 @@ void Screensaver::initShowTextFrame() {
     widVLayout->addWidget(noticeLabel);
     noticeLabel->setVisible(false);
     noticeLabel->setStyleSheet("color:red");
-    noticeLabel->setText(tr("Can only enter 30 characters"));//注：中文翻译为30个字，英语翻译为90个字符。
+    noticeLabel->setText(tr("Up to 30 characters"));
     showLabel->setText(tr("Display text"));
     showLabel->setFixedWidth(196);
+    inputText->setContextMenuPolicy(Qt::NoContextMenu); //不要右击菜单，右击菜单导致选择状态的清除不好实现
     inputText->setFixedHeight(84);
     inputText->setFontPointSize(14);
     inputText->setAcceptRichText(false); //去掉复制文字的颜色字体等属性
     inputText->moveCursor(QTextCursor::Start); //不加这个在输入文字之前复制字体大小可能不对，会受复制内容影响，原因未知。
     inputText->setStyleSheet("background-color:palette(button);");
-    inputText->setPlaceholderText(tr("Enter text, up to 30 characters"));//注：中文翻译为30个字，英语翻译为90个字符。
+    inputText->setPlaceholderText(tr("Enter text, up to 30 characters"));
+    if (qScreensaverDefaultSetting != nullptr && \
+        qScreensaverDefaultSetting->keys().contains(CONTAIN_MYTEXT_KEY,Qt::CaseSensitive)) { //存在【文本设置】
+        inputText->setText(qScreensaverDefaultSetting->get(MYTEXT_KEY).toString());
+        connect(inputText,&QTextEdit::textChanged,this,[=]{
+            if(inputText->toPlainText().count() > 30) {
+                noticeLabel->setVisible(true);
+                QString textString = inputText->toPlainText().mid(0,30);
+                inputText->setText(textString);
+                //设置光标在末尾
+                QTextCursor textCursor = inputText->textCursor();
+                textCursor.movePosition(QTextCursor::End);
+                inputText->setTextCursor(textCursor);
+            } else if (inputText->toPlainText().count() == 30) {
+                noticeLabel->setVisible(true);
+            } else {
+                noticeLabel->setVisible(false);
+            }
+            qScreensaverDefaultSetting->set(MYTEXT_KEY,inputText->toPlainText());
+        });
+    } else {//不存在【文本设置】
+        inputText->setEnabled(false);
+    }
     ui->customizeLayout->addWidget(showTextFrame);
-
-    connect(inputText,&QTextEdit::textChanged,this,[=]{
-        qDebug()<<"words = "<<inputText->toPlainText().count();
-
-        if(inputText->toPlainText().count() > 30) {
-            noticeLabel->setVisible(true);
-            QString textString = inputText->toPlainText().mid(0,30);//一个中文三个字节
-            inputText->setText(textString);
-            //设置光标在末尾
-            QTextCursor textCursor = inputText->textCursor();
-            textCursor.movePosition(QTextCursor::End);
-            inputText->setTextCursor(textCursor);
-        } else if (inputText->toPlainText().count() == 30) {
-            noticeLabel->setVisible(true);
-        } else {
-            noticeLabel->setVisible(false);
-        }
-    });
 }
 
 void Screensaver::initShowTextSetFrame() {
@@ -743,9 +774,19 @@ void Screensaver::initShowTextSetFrame() {
     textSetLayout->addWidget(textSetLabel);
     textSetLayout->addStretch();
     textSetLayout->setContentsMargins(16,0,16,0);
-    textSetLabel->setText(tr("Text displayed in the center"));
+    textSetLabel->setText(tr("Display text in the center"));
     textSetLabel->setFixedWidth(196);
     textSetLayout->addWidget(setBtn);
+    if (qScreensaverDefaultSetting != nullptr && \
+        qScreensaverDefaultSetting->keys().contains(CONTAIN_TEXT_CENTER_KEY,Qt::CaseSensitive)) { //存在【文本设置】
+        setBtn->setChecked(qScreensaverDefaultSetting->get(TEXT_CENTER_KEY).toBool());
+        connect(setBtn,&SwitchButton::checkedChanged,this,[=]{
+            qScreensaverDefaultSetting->set(TEXT_CENTER_KEY,setBtn->isChecked());
+        });
+    } else { //不存在【文本设置】
+        setBtn->setEnabled(false);
+    }
+
     ui->customizeLayout->addWidget(showTextSetFrame);
 }
 
@@ -758,9 +799,9 @@ PreviewWidget::~PreviewWidget() {
 }
 //单机对屏保进行预览
 void PreviewWidget::mousePressEvent(QMouseEvent *e) {
-    static int i = 0;
-    if(e->button() == Qt::LeftButton) {
-        qDebug()<<"   "<< ++i;
+    static QProcess *viewProcess = new QProcess(this);
+    if (e->button() == Qt::LeftButton) {
+        viewProcess->start("ukui-screensaver-dialog --screensaver");
     }
 }
 
@@ -771,4 +812,23 @@ void PreviewWidget::paintEvent(QPaintEvent *event) {
     p.setPen(Qt::NoPen);
     p.setBrush(Qt::black);
     p.drawRect(rect());
+}
+
+bool Screensaver::eventFilter(QObject *watched, QEvent *event) {
+    if (event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *mEvent   = static_cast<QMouseEvent*>(event);
+        QWidget *srcParent    = static_cast<QWidget*>(sourcePathLine->parent()); //得到sourcePathLine父窗口
+        QWidget *inTextParent = static_cast<QWidget*>(inputText->parent());      //得到inputText父窗口
+        QPoint  srcPoint      = srcParent   ->mapFromGlobal(mEvent->globalPos());//得到鼠标点击位置相对于父窗口坐标
+        QPoint  inTextPoint   = inTextParent->mapFromGlobal(mEvent->globalPos());//得到鼠标点击位置相对于父窗口坐标
+        if (!sourcePathLine->geometry().contains(srcPoint)) {
+            sourcePathLine->deselect();  //清除选中效果
+        }
+        if (!inputText->geometry().contains(inTextPoint)) { //清除选中效果
+            QTextCursor cursor = inputText->textCursor();
+            cursor.movePosition(QTextCursor::End);
+            inputText->setTextCursor(cursor);
+        }
+    }
+    return QObject::eventFilter(watched,event);
 }
