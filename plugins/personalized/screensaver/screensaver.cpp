@@ -803,7 +803,7 @@ PreviewWidget::~PreviewWidget() {
 void PreviewWidget::mousePressEvent(QMouseEvent *e) {
     static QProcess *viewProcess = new QProcess(this);
     if (e->button() == Qt::LeftButton) {
-        viewProcess->start("ukui-screensaver-dialog --screensaver");
+        viewProcess->start("ukui-screensaver-command --screensaver");
     }
 }
 
