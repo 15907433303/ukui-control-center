@@ -31,6 +31,7 @@
 #include <QPropertyAnimation>
 #include <QVariantMap>
 #include <QGSettings/QGSettings>
+#include <QHBoxLayout>
 
 #include "interface.h"
 #include "homepagewidget.h"
@@ -89,7 +90,6 @@ private:
     QLabel      *titleLabel;
     QLabel      *mTitleIcon;
     QTimer      *timer;
-    QLabel      *logoLabel;
     QLabel            *m_queryIcon;
     QLabel            *m_queryText  = nullptr;
     QPropertyAnimation *m_animation = nullptr;
@@ -99,7 +99,8 @@ private:
     QVariantMap       m_ModuleMap;
     QGSettings       *m_fontSetting;
 
-
+    QHBoxLayout     *titleLayout;
+    QGSettings      *personalQgsettings = nullptr;
 private:
     void initUI();
     void initTileBar();
@@ -112,6 +113,7 @@ private:
     bool dblOnEdge(QMouseEvent *event);
     void initStyleSheet();
     void changeSearchSlot();
+    void setLeftsidebarWidgetStyle();
 
 public slots:
     void functionBtnClicked(QObject * plugin);

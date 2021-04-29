@@ -33,6 +33,7 @@
 #include <QtDBus>
 #include <QHideEvent>
 #include <QTextEdit>
+#include <QWindow>
 
 #include "shell/interface.h"
 #include "SwitchButton/switchbutton.h"
@@ -70,13 +71,24 @@ class PreviewWidget : public QWidget
 public:
     PreviewWidget(QWidget *parent = nullptr);
     ~PreviewWidget();
-    void mousePressEvent(QMouseEvent *e); //鼠标按下
-        
 protected:
     void paintEvent(QPaintEvent *e);
+private:
+    void mousePressEvent(QMouseEvent *e);
 };
 
-class Screensaver : public QObject, CommonInterface
+class PreviewWindow : public QWindow
+{
+    Q_OBJECT
+public:
+    PreviewWindow();
+    ~PreviewWindow();
+    static void previewScreensaver();
+private:
+    void mousePressEvent(QMouseEvent *e);
+};
+
+class Screensaver : public QWidget, CommonInterface
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "org.kycc.CommonInterface")
@@ -109,9 +121,7 @@ public:
     SSThemeInfo _newThemeinfo(const char *path);
 
     void component_init();
-    void status_init();
 
-    void set_idle_gsettings_value(int value);
     void screensaver_switch();
 
     void kill_and_start();
@@ -165,16 +175,10 @@ private:
     bool mFirstLoad;
     QLineEdit *sourcePathLine;
     QTextEdit *inputText;
-private:
-    SSThemeInfo _info_new(const char * path);
-    void init_theme_info_map();
+    PreviewWindow *previewWind;
 
 private slots:
     void themesComboxChanged(int index);
-    void combobox_changed_slot(int index);
-    void activebtn_changed_slot(bool status);
-    void lockbtn_changed_slot(bool status);
-    void slider_released_slot();
     void kill_screensaver_preview();
     void keyChangedSlot(const QString &key);
 
