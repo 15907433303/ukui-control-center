@@ -1061,6 +1061,25 @@ void Widget::save()
     Q_FOREACH (const KScreen::OutputPtr &output, config->outputs()) {
         if (output->isEnabled()) {
             atLeastOneEnabledOutput = true;
+        } else {
+            screenBrightnessRecord_t screen;
+            screen.output = output;
+            bool indexExisted = false;
+            for (int i = 0; i< vBrightnessRecord.size(); ++i) {
+                if (screen.output == vBrightnessRecord[i].output) {
+                    indexExisted = true;
+                    if (!mIsBattery || mUnifyButton->isChecked()) {
+                        vBrightnessRecord[i].brightnessValue = getDDCBrighthess();
+                        break;
+                    }
+                }
+            }
+            if (indexExisted == false) {
+                if (!mIsBattery || mUnifyButton->isChecked()) {
+                    screen.brightnessValue = getDDCBrighthess();
+                    vBrightnessRecord.push_back(screen);
+                }
+            }
         }
         if (!output->isConnected())
             continue;
@@ -1117,7 +1136,20 @@ void Widget::save()
     QTimer::singleShot(1000, this,
                        [=]() {
         if (mIsWayland) {
-            QtConcurrent::run(std::mem_fn(&Widget::setBrightnesSldierValue), this);
+            bool matchFlag = false;
+            for (int i = 0; i < vBrightnessRecord.size(); ++i){
+                int index = ui->primaryCombo->currentIndex();
+                KScreen::OutputPtr output = mConfig->output(ui->primaryCombo->itemData(index).toInt());
+                if (vBrightnessRecord[i].output == output && output->isEnabled()) {
+                    matchFlag = true;
+                    ui->brightValueLabel->setText(QString::number(vBrightnessRecord[i].brightnessValue));
+                    ui->brightnessSlider->setValue(vBrightnessRecord[i].brightnessValue);
+                    vBrightnessRecord.remove(i);
+                }
+            }
+            if (matchFlag == false) {
+                QtConcurrent::run(std::mem_fn(&Widget::setBrightnesSldierValue), this);
+            }
             QString hash = config->connectedOutputsHash();
             writeFile(mDir % hash);
         }

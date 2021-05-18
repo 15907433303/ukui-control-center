@@ -51,6 +51,11 @@ namespace Ui {
 class DisplayWindow;
 }
 
+typedef struct screenBrightnessRecord {
+    KScreen::OutputPtr output;
+    int brightnessValue;
+}screenBrightnessRecord_t;
+
 class Widget : public QWidget
 {
     Q_OBJECT
@@ -222,6 +227,8 @@ private:
     bool mFirstLoad = true;
     bool mIsWayland = false;
     bool mIsBattery = false;
+
+    QVector <screenBrightnessRecord_t> vBrightnessRecord;
 
     QShortcut *mApplyShortcut;
 };
