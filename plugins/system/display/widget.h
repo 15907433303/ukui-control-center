@@ -86,6 +86,8 @@ public:
 
     void initUiComponent();
 
+    void mainScreenButtonSelect(int index, bool setFlag);     // 是否禁用设置主屏按钮
+
 protected:
     bool eventFilter(QObject *object, QEvent *event) override;
 
@@ -118,7 +120,6 @@ private Q_SLOTS:
     void slotThemeChanged(bool judge);
 
     void primaryButtonEnable(bool);             // 按钮选择主屏确认按钮
-    void mainScreenButtonSelect(int index);     // 是否禁用设置主屏按钮
     void checkOutputScreen(bool judge);         // 是否禁用屏幕
     void setBrightnessScreen(int value);        // 设置屏幕亮度
     void setDDCBrightness(int value);

@@ -819,7 +819,7 @@ void Widget::outputAdded(const KScreen::OutputPtr &output)
 
     if (!mFirstLoad) {
         QTimer::singleShot(2000, this, [=] {
-            mainScreenButtonSelect(ui->primaryCombo->currentIndex());
+            mainScreenButtonSelect(ui->primaryCombo->currentIndex(), false);
             mUnifyButton->setChecked(isCloneMode());
         });
     }
@@ -862,7 +862,7 @@ void Widget::outputRemoved(int outputId)
     mUnifyButton->blockSignals(true);
     mUnifyButton->setChecked(mConfig->connectedOutputs().count() > 1);
     mUnifyButton->blockSignals(false);
-    mainScreenButtonSelect(ui->primaryCombo->currentIndex());
+    mainScreenButtonSelect(ui->primaryCombo->currentIndex(), false);
 }
 
 void Widget::primaryOutputSelected(int index)
@@ -1370,9 +1370,11 @@ void Widget::propertiesChangedSlot(QString property, QMap<QString, QVariant> pro
 }
 
 // 是否禁用主屏按钮
-void Widget::mainScreenButtonSelect(int index)
+void Widget::mainScreenButtonSelect(int index, bool setFlag)
 {
-    QtConcurrent::run(std::mem_fn(&Widget::setBrightSliderVisible), this);
+    if (setFlag == true) {
+        QtConcurrent::run(std::mem_fn(&Widget::setBrightSliderVisible), this);
+    }
 
     if (!mConfig || ui->primaryCombo->count() <= 0) {
         return;
@@ -1485,7 +1487,9 @@ void Widget::initConnection()
     connect(mThemeButton, SIGNAL(checkedChanged(bool)), this, SLOT(slotThemeChanged(bool)));
     connect(singleButton, SIGNAL(buttonClicked(int)), this, SLOT(showCustomWiget(int)));
     connect(ui->primaryCombo, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &Widget::mainScreenButtonSelect);
+            this, [=](int index){
+        mainScreenButtonSelect(index, true);
+    });
 
     connect(ui->mainScreenButton, SIGNAL(clicked(bool)), this, SLOT(primaryButtonEnable(bool)));
     mControlPanel = new ControlPanel(this);
