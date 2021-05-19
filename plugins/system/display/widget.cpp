@@ -843,6 +843,9 @@ void Widget::outputRemoved(int outputId)
         const bool blocked = ui->primaryCombo->blockSignals(true);
         ui->primaryCombo->setCurrentIndex(0);
         ui->primaryCombo->blockSignals(blocked);
+
+        QtConcurrent::run(std::mem_fn(&Widget::loopSetBrightSliderVisible), this);
+
     }
     ui->primaryCombo->removeItem(index);
 
@@ -1065,7 +1068,7 @@ void Widget::save()
             screenBrightnessRecord_t screen;
             screen.output = output;
             bool indexExisted = false;
-            for (int i = 0; i< vBrightnessRecord.size(); ++i) {
+            for (int i = 0; i < vBrightnessRecord.size(); ++i) {
                 if (screen.output == vBrightnessRecord[i].output) {
                     indexExisted = true;
                     if (!mIsBattery || mUnifyButton->isChecked()) {
@@ -1137,7 +1140,7 @@ void Widget::save()
                        [=]() {
         if (mIsWayland) {
             bool matchFlag = false;
-            for (int i = 0; i < vBrightnessRecord.size(); ++i){
+            for (int i = 0; i < vBrightnessRecord.size(); ++i) {
                 int index = ui->primaryCombo->currentIndex();
                 KScreen::OutputPtr output = mConfig->output(ui->primaryCombo->itemData(index).toInt());
                 if (vBrightnessRecord[i].output == output && output->isEnabled()) {
@@ -1145,6 +1148,7 @@ void Widget::save()
                     ui->brightValueLabel->setText(QString::number(vBrightnessRecord[i].brightnessValue));
                     ui->brightnessSlider->setValue(vBrightnessRecord[i].brightnessValue);
                     vBrightnessRecord.remove(i);
+                    break;
                 }
             }
             if (matchFlag == false) {
@@ -1578,6 +1582,30 @@ void Widget::setBrightSliderVisible()
     ui->brightnessSlider->blockSignals(true);
     ui->brightnessSlider->setValue(value);
     ui->brightnessSlider->blockSignals(false);
+}
+
+void Widget::loopSetBrightSliderVisible() {
+    int times = 100;
+    bool firstFlag = true;
+    if (mIsBattery && !mUnifyButton->isChecked())
+        return;
+    int value = 0;
+
+    while (times--) {
+        value = getDDCBrighthess();
+        if (value > 0 || (value == 0 && firstFlag == true)) {
+            ui->brightValueLabel->setText(QString::number(value));
+            ui->brightnessSlider->blockSignals(true);
+            ui->brightnessSlider->setValue(value);
+            ui->brightnessSlider->blockSignals(false);
+            if (value > 0)
+                break;
+            else
+                firstFlag = false;
+
+        }
+        usleep(100000);
+    }
 }
 
 // 滑块改变

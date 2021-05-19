@@ -87,6 +87,7 @@ public:
     void initUiComponent();
 
     void mainScreenButtonSelect(int index, bool setFlag);     // 是否禁用设置主屏按钮
+    void loopSetBrightSliderVisible();
 
 protected:
     bool eventFilter(QObject *object, QEvent *event) override;
